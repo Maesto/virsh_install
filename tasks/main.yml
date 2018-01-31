@@ -1,0 +1,23 @@
+---
+- name: Include OS family specific variables
+  include_vars: "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+
+- name: Install common packages
+  package:
+    name: "{{ item }}"
+  with_items: "{{ virt_install_packages }}"
+
+- name: start libvirtd
+  service: name=libvirtd state=started enabled=yes
+
+- name: get list of vms
+  virt: command=list_vms
+  register: virt_vms
+
+
+- name: setup VM
+  include_tasks: createVM.yml
+  when: item.name not in virt_vms.list_vms
+  with_items: "{{ virsh_install_guests }}"
+  loop_control:
+    loop_var: outer_item

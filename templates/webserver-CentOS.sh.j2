@@ -1,0 +1,10 @@
+#!/bin/bash
+
+case "$1" in
+        start)
+         /usr/sbin/daemonize -e /tmp/stderr -o /tmp/stdout -c . -p /var/run/virsh_install_webserver -l /var/run/virsh_install_webserver /usr/bin/python -m SimpleHTTPServer
+        ;;
+        stop)
+         /usr/bin/kill $(cat /var/run/virsh_install_webserver)
+        ;;
+esac

@@ -1,0 +1,80 @@
+- name: create wd for tmp webserver
+  tempfile:
+    state: directory
+  register: tmp_wd_ws
+  changed_when: False
+
+- name: create tmp webserver script
+  template:
+    src: "{{ virt_install_tmp_webserver_script }}"
+    dest: "{{ tmp_wd_ws.path }}/webserver.sh"
+    mode: 0744
+  changed_when: False
+
+- name: start tmp webserver
+  command: ./webserver.sh start
+  args:
+    chdir: "{{ tmp_wd_ws.path }}"
+  changed_when: False
+
+- name: template out preseed files
+  template: 
+    src: "{{ item.src }}"
+    dest: "{{ tmp_wd_ws.path }}/{{ item.dest }}" 
+  with_items: "{{ outer_item.templates }}"
+  when: outer_item.templates is defined
+  changed_when: False
+
+- name: copy files over
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ tmp_wd_ws.path }}/{{ item.dest }}"
+  with_items: "{{ outer_item.files }}"
+  when: outer_item.files is defined
+  changed_when: False
+ 
+- name: install vm
+  command: virt-install -n {{ outer_item.name }}
+           -r {{ outer_item.mem }} 
+           --description {{ outer_item.desc }} 
+           --location={{ outer_item.location }} 
+           --noautoconsole
+           --disk size={{ outer_item.disk.size }},pool={{ outer_item.disk.pool }}
+           -w bridge={{ outer_item.net.bridge }},model=virtio
+           --graphics vnc
+           -x "{{ outer_item.kernelparams }} locale={{ outer_item.locale | default('en_US') }} console-setup/ask_detect=false keymap={{ outer_item.keymap | default('us') }} hostname={{ outer_item.hostname }} domain={{ outer_item.domain }}"
+           --wait=-1
+
+- name: wait for VMs ssh
+  wait_for:
+    host: "{{ outer_item.ipaddress }}"
+    port: 22
+    delay: 10
+    timeout: 600
+  vars:
+    ansible_connection: local
+  when: outer_item.ipaddress is defined
+
+- name: wait for VM
+  wait_for: timeout=120
+  delegate_to: localhost
+  when: outer_item.ipaddress is not defined
+
+- name: stop tmp webserver
+  command: ./webserver.sh stop
+  args:
+    chdir: "{{ tmp_wd_ws.path }}"
+  changed_when: False
+
+- name: cleanup tmp webserver
+  file:
+    path: "/var/run/virsh_install_webserver"
+    state: "absent"
+  changed_when: False
+
+- name: cleanup tmp webserver wd
+  file:
+    path: "{{ tmp_wd_ws.path }}"
+    state: "absent"
+  changed_when: False
+

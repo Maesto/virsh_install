@@ -1,0 +1,104 @@
+d-i debian-installer/locale string {{ outer_item.locale | default("en_US") }}
+
+d-i preseed/early_command string kill-all-dhcp; netcfg
+
+d-i console-setup/ask_detect boolean false
+d-i keyboard-configuration/layoutcode string {{ outer_item.keymap | default('en') }}
+d-i keyboard-configuration/xkb-keymap select {{ outer_item.keymap | default('en') }}
+
+d-i netcfg/choose_interface select {{ outer_item.preseed_interface | default('auto') }}
+
+{% if outer_item.ipaddress is defined %}
+d-i netcfg/disable_autoconfig boolean true
+{% else %}
+d-i netcfg/disable_autoconfig boolean false
+{% endif %}
+
+{% if outer_item.ipaddress is defined %}
+# Static network configuration.
+d-i netcfg/get_ipaddress string {{ outer_item.ipaddress }}
+d-i netcfg/get_netmask string {{ outer_item.netmask | default('255.255.255.0') }}
+d-i netcfg/get_gateway string {{ outer_item.gateway }}
+d-i netcfg/get_nameservers string {{ outer_item.nameservers  }}
+d-i netcfg/confirm_static boolean true
+{% endif %}
+
+d-i netcfg/get_hostname string {{ outer_item.hostname }}
+d-i netcfg/get_domain string {{ outer_item.domain }}
+
+d-i netcfg/hostname string {{ outer_item.hostname }}
+
+d-i mirror/country string manual
+d-i mirror/http/hostname string archive.ubuntu.com
+d-i mirror/http/directory string /ubuntu
+d-i mirror/http/proxy string
+
+d-i clock-setup/utc boolean true
+
+# You may set this to any valid setting for $TZ; see the contents of
+# /usr/share/zoneinfo/ for valid values.
+d-i time/zone string {{ outer_item.timezone | default('UTC') }}
+
+# Controls whether to use NTP to set the clock during the install
+d-i clock-setup/ntp boolean true
+# NTP server to use.
+d-i clock-setup/ntp-server string {{ outer_item.ntpserver | default('pool.ntp.org') }}
+
+{% if outer_item.partman_disk is defined %}
+d-i partman-auto/disk string {{ outer_item.partman_disk }}
+{% endif %}
+d-i partman-auto/method string {{ outer_item.partman_auto_method | default('lvm') }}
+d-i partman-auto-lvm/guided_size string {{ outer_item.partman_guided_size | default('90%') }}
+d-i partman-auto/choose_recipe select {{ outer_item.partman_recipe | default('home') }}
+
+{% if outer_item.wipe_existing is defined %}
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman-lvm/device_remove_lvm_span boolean true
+d-i partman-auto/purge_lvm_from_device boolean true
+{% endif %}
+
+d-i partman/default_filesystem string {{ outer_item.default_filesystem |  default('ext4') }}
+
+# This makes partman automatically partition without confirmation
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman-md/confirm boolean true
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+
+d-i partman/mount_style select uuid
+
+d-i passwd/root-login boolean {{ outer_item.root_login | default('true') }}
+d-i passwd/make-user boolean {{ outer_item.make_user | default('false') }}
+
+d-i user-setup/allow-password-weak  boolean {{ outer_item.password_weak | default('true') }}
+
+d-i passwd/root-password password r00tme
+d-i passwd/root-password-again password r00tme
+
+d-i user-setup/encrypt-home boolean {{ outer_item.encrypt_home | default('false') }}
+
+tasksel tasksel/first multiselect minimal
+d-i pkgsel/include string openssh-server
+d-i pkgsel/upgrade select full-upgrade
+
+d-i pkgsel/language-packs multiselect de, en
+
+d-i pkgsel/update-policy select unattended-upgrades
+
+d-i grub-installer/only_debian boolean true
+
+d-i grub-installer/with_other_os boolean true
+
+{% if outer_item.preseed_ip %}
+d-i preseed/late_command string wget -q {{ outer_item.preseed_ip }}:{{ outer_item.preseed_port | default('8000') }}/postInstall.sh; chmod +x /postInstall.sh; sh /postInstall.sh &> /target/root/install.log
+#d-i preseed/late_command string mkdir -p /target/root/.ssh/ ;cp /authorized_keys /target/root/.ssh/; chown root:root /target/root/.ssh/authorized_keys; chmod 600 /target/root/.ssh/authorized_keys
+{% endif %}
+# This will prevent the installer from ejecting the CD during the reboot,
+# which is useful in some situations.
+#d-i cdrom-detect/eject boolean false
+d-i finish-install/reboot_in_progress note
