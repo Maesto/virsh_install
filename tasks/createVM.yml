@@ -52,7 +52,6 @@
     delay: 10
     timeout: 600
   vars:
-    ansible_connection: local
   when: outer_item.ipaddress is defined
 
 - name: wait for VM
