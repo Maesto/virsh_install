@@ -34,9 +34,9 @@
   changed_when: False
  
 - name: install vm
-  command: virt-install -n {{ outer_item.name }}
+  command: virt-install -n "{{ outer_item.name }}"
            -r {{ outer_item.mem }} 
-           --description {{ outer_item.desc }} 
+           --description "{{ outer_item.desc }}"
            --location={{ outer_item.location }} 
            --noautoconsole
            --disk size={{ outer_item.disk.size }},pool={{ outer_item.disk.pool }}

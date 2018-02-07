@@ -5,6 +5,7 @@ cp /authorized_keys /target/root/.ssh/
 chown root:root /target/root/.ssh/authorized_keys
 chmod 600 /target/root/.ssh/authorized_keys
 
+in-target apt-get install -y python
 
 {% if pass_server_ip is defined %}
 wget -q {{ outer_item.preseed_ip }}:{{ outer_item.preseed_port }}/key.asc
