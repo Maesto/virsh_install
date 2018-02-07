@@ -1,0 +1,90 @@
+- name: create wd for tmp webserver
+  tempfile:
+    state: directory
+  register: tmp_wd_ws
+  changed_when: False
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: create tmp webserver script
+  template:
+    src: "{{ virt_install_tmp_webserver_script }}"
+    dest: "{{ tmp_wd_ws.path }}/webserver.sh"
+    mode: 0744
+  changed_when: False
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: start tmp webserver
+  command: ./webserver.sh start
+  args:
+    chdir: "{{ tmp_wd_ws.path }}"
+  changed_when: False
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: template out preseed files
+  template: 
+    src: "{{ item.src }}"
+    dest: "{{ tmp_wd_ws.path }}/{{ item.dest }}" 
+  with_items:
+    - { src: 'preseed.cfg.j2', dest: 'preseed.cfg'  }
+    - { src: 'postInstall.sh.j2', dest: 'postInstall.sh'  }
+  changed_when: False
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: copy files over
+  copy:
+    content: "{{ item.content }}"
+    dest: "{{ tmp_wd_ws.path }}/{{ item.dest }}"
+  with_items: "{{  hostvars[inventory_hostname]['vm']['files'] }}"
+  changed_when: False
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+ 
+- name: install vm
+  command: virt-install -n "{{ inventory_hostname }}"
+           -r {{ hostvars[inventory_hostname]['vm']['mem'] }} 
+           --description "{{ hostvars[inventory_hostname]['vm']['desc'] }}"
+           --location="{{ hostvars[inventory_hostname]['vm']['location']  }}"
+           --noautoconsole
+           --disk size="{{ hostvars[inventory_hostname]['vm']['disk']['size']  }},pool={{ hostvars[inventory_hostname]['vm']['disk']['pool']  }}"
+           -w bridge={{ hostvars[inventory_hostname]['vm']['net']['bridge'] }},model=virtio
+           --graphics vnc
+           -x "url=http://{{ hostvars[inventory_hostname]['vm']['preseed_ip'] }}:{{ hostvars[inventory_hostname]['vm']['preseed_port'] }}/preseed.cfg locale={{ hostvars[inventory_hostname]['vm']['locale'] | default('en_US') }} console-setup/ask_detect=false keymap={{ hostvars[inventory_hostname]['vm']['keymap'] | default('us') }} hostname={{ hostvars[inventory_hostname]['vm']['hostname'] | default(inventory_hostname) }} domain={{ hostvars[inventory_hostname]['vm']['domain'] }}"
+           --wait=-1
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: wait for VMs ssh
+  wait_for:
+    host: "{{ hostvars[inventory_hostname]['vm']['ipaddress'] }}"
+    port: 22
+    delay: 10
+    timeout: 600
+  vars:
+  when: hostvars[inventory_hostname]['vm']['ipaddress'] is defined
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: wait for VM
+  wait_for: timeout=120
+  when: hostvars[inventory_hostname]['vm']['ipaddress'] is not defined
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: stop tmp webserver
+  command: ./webserver.sh stop
+  args:
+    chdir: "{{ tmp_wd_ws.path }}"
+  changed_when: False
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: cleanup tmp webserver
+  file:
+    path: "/var/run/virsh_install_webserver"
+    state: "absent"
+  changed_when: False
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+- name: cleanup tmp webserver wd
+  file:
+    path: "{{ tmp_wd_ws.path }}"
+    state: "absent"
+  changed_when: False
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
+
+

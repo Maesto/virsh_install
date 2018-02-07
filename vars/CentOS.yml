@@ -1,5 +1,5 @@
 ---
-virt_install_packages:
+hv_packages:
   - libvirt
   - virt-install
   - libvirt-client

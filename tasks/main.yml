@@ -1,23 +1,27 @@
 ---
-- name: Include OS family specific variables
-  include_vars: "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+- name: Include Hypervisor OS family specific variables
+  include_vars: "{{ hostvars[hostvars[inventory_hostname]['vm']['hypervisor']]['ansible_distribution'] }}-{{ hostvars[hostvars[inventory_hostname]['vm']['hypervisor']]['ansible_distribution_major_version'] }}.yml"
 
 - name: Install common packages
   package:
     name: "{{ item }}"
-  with_items: "{{ virt_install_packages }}"
+  with_items: "{{ hv_packages }}"
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
 
 - name: start libvirtd
   service: name=libvirtd state=started enabled=yes
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
 
 - name: get list of vms
   virt: command=list_vms
   register: virt_vms
+  delegate_to: "{{ hostvars[inventory_hostname]['vm']['hypervisor'] }}"
 
 
 - name: setup VM
-  include_tasks: createVM.yml
-  with_items: "{{ virsh_install_guests }}"
-  loop_control:
-    loop_var: outer_item
-  when: outer_item.name not in virt_vms.list_vms
+  include_tasks: "{{ hostvars[inventory_hostname]['vm']['distribution'] }}-createVM.yml"
+  when: inventory_hostname not in virt_vms.list_vms
+
+- name: run fact gathering
+  setup:
+

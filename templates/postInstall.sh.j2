@@ -1,5 +1,5 @@
 #!/bin/sh
-wget -q {{ outer_item.preseed_ip }}:{{ outer_item.preseed_port }}/authorized_keys
+wget -q {{ hostvars[inventory_hostname]['vm']['preseed_ip'] }}:{{ hostvars[inventory_hostname]['vm']['preseed_port'] }}/authorized_keys
 mkdir -p /target/root/.ssh/
 cp /authorized_keys /target/root/.ssh/
 chown root:root /target/root/.ssh/authorized_keys
@@ -7,16 +7,16 @@ chmod 600 /target/root/.ssh/authorized_keys
 
 in-target apt-get install -y python
 
-{% if pass_server_ip is defined %}
-wget -q {{ outer_item.preseed_ip }}:{{ outer_item.preseed_port }}/key.asc
+{% if hostvars[inventory_hostname]['vm']['pass_server_ip'] is defined %}
+wget -q {{ hostvars[inventory_hostname]['vm']['preseed_ip'] }}:{{ hostvars[inventory_hostname]['vm']['preseed_port'] }}/key.asc
 cp /key.asc /target/root/key.asc
 in-target apt-get install -y curl
 in-target bash -c 'openssl rand -base64 32 > /tmp/nodskpw'
 in-target bash -c 'pw=$(cat /tmp/nodskpw);user="root";echo "$user:$pw"| chpasswd'
 in-target bash -c 'gpg --batch --yes --list-keys'
 in-target bash -c 'gpg --batch --yes --import /root/key.asc'
-in-target bash -c 'cat /tmp/nodskpw | gpg --batch --yes --trust-model always --encrypt --recipient 0x4048067A > /root/nodskpw.gpg'
-in-target bash -c 'user="root"; host=$(hostname);curl --request POST --data-binary "@/root/nodskpw.gpg" "{{pass_server_ip }}:{{ pass_server_port }}/pass/$user@$host"'
+in-target bash -c 'cat /tmp/nodskpw | gpg --batch --yes --trust-model always --encrypt --recipient {{ hostvars[inventory_hostname]['vm']['pass_gpg_id'] }} > /root/nodskpw.gpg'
+in-target bash -c 'user="root"; host=$(hostname);curl --request POST --data-binary "@/root/nodskpw.gpg" "{{hostvars[inventory_hostname]['vm']['pass_server_ip'] }}:{{ hostvars[inventory_hostname]['vm']['pass_server_port'] }}/pass/$user@$host"'
 
 {% endif %}
 exit 0
